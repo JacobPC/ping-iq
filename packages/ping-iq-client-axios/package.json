@@ -1,0 +1,21 @@
+{
+  "name": "ping-iq-client-axios",
+  "version": "0.1.0",
+  "description": "Axios client for PingIQ endpoints",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "sideEffects": false,
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "axios": ">=1"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
+
+

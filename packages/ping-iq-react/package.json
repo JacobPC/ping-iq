@@ -1,0 +1,21 @@
+{
+  "name": "ping-iq-react",
+  "version": "0.1.0",
+  "description": "React hooks for PingIQ clients",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "sideEffects": false,
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": ">=17"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
+
+

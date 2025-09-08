@@ -24,10 +24,15 @@ export function createExpressRouter(handlers: Handlers, basePath = "/"): Router 
   const express = require("express") as typeof import("express");
   const router = express.Router();
 
+  // root liveness OK
+  router.get(`${basePath}`, async (req: Request, res: Response) => send(res, await handlers.root(toReq(req))));
+
   router.get(`${basePath}ping`, async (req: Request, res: Response) => send(res, await handlers.ping(toReq(req))));
   router.get(`${basePath}time`, async (req: Request, res: Response) => send(res, await handlers.time(toReq(req))));
   router.get(`${basePath}info`, async (req: Request, res: Response) => send(res, await handlers.info(toReq(req))));
   router.get(`${basePath}health`, async (req: Request, res: Response) => send(res, await handlers.health(toReq(req))));
+  router.get(`${basePath}healthz`, async (req: Request, res: Response) => send(res, await handlers.healthz(toReq(req))));
+  router.get(`${basePath}readiness`, async (req: Request, res: Response) => send(res, await handlers.readiness(toReq(req))));
   router.get(`${basePath}metrics`, async (req: Request, res: Response) => send(res, await handlers.metrics(toReq(req))));
   router.get(`${basePath}diagnostics/network`, async (req: Request, res: Response) => send(res, await handlers.diagnosticsNetwork(toReq(req))));
   router.get(`${basePath}env`, async (req: Request, res: Response) => send(res, await handlers.env(toReq(req))));

@@ -2,8 +2,12 @@ import { ReadinessCheck } from "./types";
 
 export function booleanCheck(name: string, fn: () => boolean | Promise<boolean>): ReadinessCheck {
   return async () => {
-    const ok = await Promise.resolve(fn());
-    return { name, status: ok ? "ok" : "fail" } as const;
+    try {
+      const ok = await Promise.resolve(fn());
+      return { name, status: ok ? "ok" : "fail" } as const;
+    } catch (e) {
+      return { name, status: "fail", error: e instanceof Error ? e.message : String(e) } as const;
+    }
   };
 }
 

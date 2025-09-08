@@ -65,6 +65,7 @@ export interface PingIQOptions {
     description?: string;
     servers?: { url: string; description?: string }[];
   };
+  livenessMetrics?: boolean; // default false, if true record metrics for /, /health, /healthz
 }
 
 export interface RequestLike {

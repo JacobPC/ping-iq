@@ -14,14 +14,17 @@ export function createNestModule(handlers: Handlers, basePath = "/") {
     };
 
     try {
+      if (match(`${basePath}`)) return send(await handlers.root(makeReq(req.query)));
       if (match(`${basePath}ping`)) return send(await handlers.ping(makeReq(req.query)));
       if (match(`${basePath}time`)) return send(await handlers.time(makeReq(req.query)));
       if (match(`${basePath}info`)) return send(await handlers.info(makeReq(req.query)));
       if (match(`${basePath}health`)) return send(await handlers.health(makeReq(req.query)));
+      if (match(`${basePath}healthz`)) return send(await handlers.healthz(makeReq(req.query)));
+      if (match(`${basePath}readiness`)) return send(await handlers.readiness(makeReq(req.query)));
       if (match(`${basePath}metrics`)) return send(await handlers.metrics(makeReq(req.query)));
       if (match(`${basePath}diagnostics/network`)) return send(await handlers.diagnosticsNetwork(makeReq(req.query)));
       if (match(`${basePath}env`)) return send(await handlers.env(makeReq(req.query)));
-      if (match(`${basePath}openapi.json`)) return send(await (handlers as any).openapi(makeReq(req.query)));
+      if (match(`${basePath}openapi.json`)) return send(await handlers.openapi(makeReq(req.query)));
       return next();
     } catch (e) {
       return next(e);

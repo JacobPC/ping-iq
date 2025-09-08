@@ -79,6 +79,13 @@
     "koa": ">=2",
     "@nestjs/common": ">=9",
     "@nestjs/core": ">=9"
+  },
+  "peerDependenciesMeta": {
+    "express": { "optional": true },
+    "fastify": { "optional": true },
+    "koa": { "optional": true },
+    "@nestjs/common": { "optional": true },
+    "@nestjs/core": { "optional": true }
   }
 }
 

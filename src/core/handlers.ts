@@ -111,6 +111,10 @@ export function createHandlers(ctx: HandlerContext) {
   }
 
   return {
+    root: async (req: any) => {
+      return textOk("OK");
+    },
+    
     ping: async (req: any) => {
       const g = await guard(req, "ping");
       if (g !== true) return respond("ping", g, req);
@@ -131,10 +135,18 @@ export function createHandlers(ctx: HandlerContext) {
     },
 
     health: async (req: any) => {
-      const g = await guard(req, "health");
-      if (g !== true) return respond("health", g, req);
+      return textOk("ok");
+    },
+
+    healthz: async (req: any) => {
+      return textOk("ok");
+    },
+
+    readiness: async (req: any) => {
+      const g = await guard(req, "readiness");
+      if (g !== true) return respond("readiness", g, req);
       const { status, checks } = await runReadinessChecks(options.readinessChecks);
-      return respond("health", ok({ status, timestamp: nowUtcIso(), checks }), req);
+      return respond("readiness", ok({ status, timestamp: nowUtcIso(), checks }), req);
     },
 
     metrics: async (req: any) => {

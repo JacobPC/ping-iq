@@ -69,10 +69,12 @@ const health = await client.health();
 
 ## What you get
 
+- **/**: liveness; returns 200 OK with body "OK"
 - **/ping**: heartbeat that returns { status, message: "pong", timestamp }
 - **/time**: server UTC timestamp
 - **/info**: service metadata (name, version, environment, extra)
 - **/health**: liveness/readiness with configurable async checks
+- **/readiness**: detailed readiness with async checks (alias of /health)
 - **/metrics**: Prometheus exposition (uptime, memory, request counts)
 - **/diagnostics/network**: latency and optional throughput (rate-limited)
 - **/env**: whitelisted environment variables (disabled by default)
@@ -193,6 +195,7 @@ interface PingIQOptions {
     description?: string;
     servers?: { url: string; description?: string }[];
   };
+  livenessMetrics?: boolean; // default false
 }
 ```
 
@@ -225,6 +228,9 @@ const pingIQ = createPingIQ({
 
 ## Endpoints
 
+- **GET /**
+  - Response: plain text `OK`
+
 - **GET /ping**
   - Response: `{ status: 'ok', message: 'pong', timestamp }`
 
@@ -234,8 +240,11 @@ const pingIQ = createPingIQ({
 - **GET /info**
   - Response: `{ name, version, environment, ...extra }`
 
-- **GET /health**
+- **GET /health** (legacy; same as readiness)
   - Runs all `readinessChecks` and reports combined status.
+- **GET /readiness**
+  - Runs all `readinessChecks` and reports combined status.
+  - Response same as /health.
   - Response:
     ```json
     {

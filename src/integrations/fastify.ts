@@ -2,6 +2,11 @@ type Handlers = ReturnType<typeof import("../core/handlers").createHandlers>;
 
 export function createFastifyPlugin(handlers: Handlers, basePath = "/") {
   return async function (fastify: any, _opts: any) {
+    fastify.get(`${basePath}`, async (req: any, reply: any) => {
+      const out = await handlers.root({ method: req.method, url: req.url, headers: req.headers, query: req.query || {}, ip: req.headers["x-forwarded-for"] || req.ip });
+      if (out.headers) reply.headers(out.headers);
+      reply.code(out.status).send(out.body);
+    });
     fastify.get(`${basePath}ping`, async (req: any, reply: any) => {
       const out = await handlers.ping({
         method: req.method,
@@ -32,6 +37,18 @@ export function createFastifyPlugin(handlers: Handlers, basePath = "/") {
       reply.code(out.status).send(out.body);
     });
 
+    fastify.get(`${basePath}healthz`, async (req: any, reply: any) => {
+      const out = await handlers.healthz({ method: req.method, url: req.url, headers: req.headers, query: req.query || {}, ip: req.headers["x-forwarded-for"] || req.ip });
+      if (out.headers) reply.headers(out.headers);
+      reply.code(out.status).send(out.body);
+    });
+
+    fastify.get(`${basePath}readiness`, async (req: any, reply: any) => {
+      const out = await handlers.readiness({ method: req.method, url: req.url, headers: req.headers, query: req.query || {}, ip: req.headers["x-forwarded-for"] || req.ip });
+      if (out.headers) reply.headers(out.headers);
+      reply.code(out.status).send(out.body);
+    });
+
     fastify.get(`${basePath}metrics`, async (req: any, reply: any) => {
       const out = await handlers.metrics({ method: req.method, url: req.url, headers: req.headers, query: req.query || {}, ip: req.headers["x-forwarded-for"] || req.ip });
       if (out.headers) reply.headers(out.headers);
@@ -45,13 +62,13 @@ export function createFastifyPlugin(handlers: Handlers, basePath = "/") {
     });
 
     fastify.get(`${basePath}env`, async (req: any, reply: any) => {
-      const out = await handlers.env({ method: req.method, url: req.url, headers: req.headers, query: req.query || {}, ip: req.headers["x-forwarded-for"] || req.ip });
+      const out = await handlers.env({ method: req.method, url: req.url, headers: req.headers, ip: req.headers["x-forwarded-for"] || req.ip });
       if (out.headers) reply.headers(out.headers);
       reply.code(out.status).send(out.body);
     });
 
     fastify.get(`${basePath}openapi.json`, async (req: any, reply: any) => {
-      const out = await (handlers as any).openapi({ method: req.method, url: req.url, headers: req.headers, query: req.query || {}, ip: req.headers["x-forwarded-for"] || req.ip });
+      const out = await handlers.openapi({ method: req.method, url: req.url, headers: req.headers, query: req.query || {}, ip: req.headers["x-forwarded-for"] || req.ip });
       if (out.headers) reply.headers(out.headers);
       reply.code(out.status).send(out.body);
     });

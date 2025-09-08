@@ -18,10 +18,13 @@ export function createKoaMiddleware(handlers: Handlers, basePath = "/") {
       ip: ctx.headers["x-forwarded-for"] || ctx.ip,
     };
 
+    if (path === `${basePath}`) return send(await handlers.root(req));
     if (path === `${basePath}ping`) return send(await handlers.ping(req));
     if (path === `${basePath}time`) return send(await handlers.time(req));
     if (path === `${basePath}info`) return send(await handlers.info(req));
     if (path === `${basePath}health`) return send(await handlers.health(req));
+    if (path === `${basePath}healthz`) return send(await handlers.healthz(req));
+    if (path === `${basePath}readiness`) return send(await handlers.readiness(req));
     if (path === `${basePath}metrics`) return send(await handlers.metrics(req));
     if (path === `${basePath}diagnostics/network`) return send(await handlers.diagnosticsNetwork(req));
     if (path === `${basePath}env`) return send(await handlers.env(req));

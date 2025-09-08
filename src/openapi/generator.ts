@@ -26,6 +26,9 @@ export function generateOpenAPISpec(opts: PingIQResolvedOptions) {
   });
 
   const paths: any = {
+    [`${base}/`]: { get: { summary: "Liveness (OK)", responses: { 200: textResp() } } },
+    [`${base}/health`]: { get: { summary: "Liveness (ok)", responses: { 200: textResp() } } },
+    [`${base}/healthz`]: { get: { summary: "Liveness (ok)", responses: { 200: textResp() } } },
     [`${base}/ping`]: {
       get: {
         summary: "Ping",
@@ -38,8 +41,9 @@ export function generateOpenAPISpec(opts: PingIQResolvedOptions) {
     [`${base}/info`]: {
       get: { summary: "Service info", responses: { 200: jsonResp({ type: "object", additionalProperties: true }) } },
     },
-    [`${base}/health`]: {
-      get: { summary: "Health (liveness/readiness)", responses: { 200: jsonResp({ type: "object", properties: { status: { type: "string", enum: ["ok", "degraded", "fail"] }, timestamp: { type: "string", format: "date-time" }, checks: { type: "array", items: { type: "object", additionalProperties: true } } } }) } },
+    // legacy: keep readiness detailed under /readiness
+    [`${base}/readiness`]: {
+      get: { summary: "Readiness (detailed checks)", responses: { 200: jsonResp({ type: "object", properties: { status: { type: "string", enum: ["ok", "degraded", "fail"] }, timestamp: { type: "string", format: "date-time" }, checks: { type: "array", items: { type: "object", additionalProperties: true } } } }) } },
     },
     [`${base}/metrics`]: {
       get: { summary: "Prometheus metrics", responses: { 200: textResp() } },

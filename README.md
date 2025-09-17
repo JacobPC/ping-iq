@@ -17,9 +17,9 @@ Lightweight, secure-by-default, and production-ready. Works with Express, Fastif
 ## Installation
 
 ```bash
-npm i ping-iq
+npm i @common-sense/ping-iq
 # or
-yarn add ping-iq
+yarn add @common-sense/ping-iq
 ```
 
 ## How to use in 15 minutes
@@ -29,7 +29,7 @@ yarn add ping-iq
 ```ts
 // Express example
 import express from 'express';
-import { createPingIQ } from 'ping-iq';
+import { createPingIQ } from '@common-sense/ping-iq';
 
 const app = express();
 const pingIQ = createPingIQ({ info: { name: 'my-service', version: '1.0.0' } });
@@ -40,7 +40,7 @@ app.listen(3000);
 2) Add readiness checks (optional):
 
 ```ts
-import { createPingIQ, booleanCheck, timedCheck } from 'ping-iq';
+import { createPingIQ, booleanCheck, timedCheck } from '@common-sense/ping-iq';
 
 const pingIQ = createPingIQ({
   readinessChecks: [
@@ -62,7 +62,7 @@ const pingIQ = createPingIQ({
 4) Add a client (optional):
 
 ```ts
-import { createPingIQClient } from 'ping-iq-client-fetch';
+import { createPingIQClient } from '@common-sense/ping-iq-client-fetch';
 const client = createPingIQClient({ baseUrl: '/_status' });
 const health = await client.health();
 ```
@@ -95,7 +95,7 @@ Recommended: mount at a prefix and keep default `basePath: '/'`.
 
 ```ts
 import express from 'express';
-import { createPingIQ } from 'ping-iq';
+import { createPingIQ } from '@common-sense/ping-iq';
 
 const app = express();
 const pingIQ = createPingIQ({
@@ -115,7 +115,7 @@ Use Fastify's `prefix` when registering.
 
 ```ts
 import Fastify from 'fastify';
-import { createPingIQ } from 'ping-iq';
+import { createPingIQ } from '@common-sense/ping-iq';
 
 const app = Fastify();
 const pingIQ = createPingIQ();
@@ -130,7 +130,7 @@ Koa lacks a built-in router prefix for middleware, so set `basePath`.
 
 ```ts
 import Koa from 'koa';
-import { createPingIQ } from 'ping-iq';
+import { createPingIQ } from '@common-sense/ping-iq';
 
 const app = new Koa();
 const pingIQ = createPingIQ({ basePath: '/_status/' });
@@ -147,7 +147,7 @@ Attach the middleware in your bootstrap (or via a module's consumer).
 // main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { createPingIQ } from 'ping-iq';
+import { createPingIQ } from '@common-sense/ping-iq';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -203,7 +203,7 @@ interface PingIQOptions {
 Example with readiness checks (using helpers), env allowlist, and auth:
 
 ```ts
-import { createPingIQ, booleanCheck, timedCheck, httpGetCheck, tcpPortCheck, clientPingCheck } from 'ping-iq';
+import { createPingIQ, booleanCheck, timedCheck, httpGetCheck, tcpPortCheck, clientPingCheck } from '@common-sense/ping-iq';
 
 // Example clients (replace with your own instances)
 const db = { ping: async () => true };
@@ -334,7 +334,7 @@ Pick your preferred client and optionally React hooks.
 ### Fetch client
 
 ```ts
-import { createPingIQClient } from 'ping-iq-client-fetch';
+import { createPingIQClient } from '@common-sense/ping-iq-client-fetch';
 const client = createPingIQClient({ baseUrl: '/_status' });
 const { status } = await client.health();
 
@@ -351,7 +351,7 @@ console.log(l1.rttMs, 'ms');
 
 ```ts
 import axios from 'axios';
-import { createPingIQAxiosClient } from 'ping-iq-client-axios';
+import { createPingIQAxiosClient } from '@common-sense/ping-iq-client-axios';
 const client = createPingIQAxiosClient({ baseUrl: '/_status', axios });
 const info = await client.info();
 
@@ -365,8 +365,8 @@ console.log(l2.rttMs, 'ms');
 ### React hooks
 
 ```tsx
-import { createPingIQClient } from 'ping-iq-client-fetch';
-import { createPingIQHooks } from 'ping-iq-react';
+import { createPingIQClient } from '@common-sense/ping-iq-client-fetch';
+import { createPingIQHooks } from '@common-sense/ping-iq-react';
 
 const client = createPingIQClient({ baseUrl: '/_status' });
 const { useHealth } = createPingIQHooks(client);
@@ -386,10 +386,10 @@ function HealthWidget() {
 If you prefer importing adapters directly:
 
 ```ts
-import router from 'ping-iq/express';
-import plugin from 'ping-iq/fastify';
-import middleware from 'ping-iq/koa';
-import nest from 'ping-iq/nest';
+import router from '@common-sense/ping-iq/express';
+import plugin from '@common-sense/ping-iq/fastify';
+import middleware from '@common-sense/ping-iq/koa';
+import nest from '@common-sense/ping-iq/nest';
 ```
 
 Note: the main factory `createPingIQ()` already returns bound adapters; subpaths are optional.
@@ -407,7 +407,7 @@ const pingIQ = createPingIQ({ openapi: { enabled: true, title: 'My Service - Sta
 You can also generate the spec manually:
 
 ```ts
-import { createPingIQ, generateOpenAPISpec } from 'ping-iq';
+import { createPingIQ, generateOpenAPISpec } from '@common-sense/ping-iq';
 const pingIQ = createPingIQ({ openapi: { enabled: true } });
 // get handlers' resolved options indirectly is not exposed; use the endpoint or mirror config.
 ```

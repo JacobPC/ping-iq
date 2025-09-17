@@ -65,12 +65,13 @@
       "default": "./dist/integrations/nest.js"
     }
   },
-  "author": "",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/JacobPC/ping-iq.git"
   },
+  "homepage": "https://github.com/JacobPC/ping-iq#readme",
+  "author": "JacobPC",
   "engines": {
     "node": ">=16"
   },

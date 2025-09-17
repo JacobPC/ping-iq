@@ -44,7 +44,7 @@ export function createFastifyPlugin(handlers: Handlers, basePath = "/") {
     });
 
     fastify.get(`${basePath}readiness`, async (req: any, reply: any) => {
-      const out = await handlers.readiness({ method: req.method, url: req.url, headers: req.headers, query: req.query || {}, ip: req.headers["x-forwarded-for"] || req.ip });
+      const out = await handlers.readiness({ method: req.method, url: req.url, headers: req.headers, query: req.query || {} });
       if (out.headers) reply.headers(out.headers);
       reply.code(out.status).send(out.body);
     });
@@ -61,6 +61,12 @@ export function createFastifyPlugin(handlers: Handlers, basePath = "/") {
       reply.code(out.status).send(out.body);
     });
 
+    fastify.get(`${basePath}diagnostics/latency`, async (req: any, reply: any) => {
+      const out = await (handlers as any).diagnosticsLatency({ method: req.method, url: req.url, headers: req.headers, query: req.query || {}, ip: req.headers["x-forwarded-for"] || req.ip });
+      if (out.headers) reply.headers(out.headers);
+      reply.code(out.status).send(out.body);
+    });
+
     fastify.get(`${basePath}env`, async (req: any, reply: any) => {
       const out = await handlers.env({ method: req.method, url: req.url, headers: req.headers, ip: req.headers["x-forwarded-for"] || req.ip });
       if (out.headers) reply.headers(out.headers);
@@ -69,6 +75,18 @@ export function createFastifyPlugin(handlers: Handlers, basePath = "/") {
 
     fastify.get(`${basePath}openapi.json`, async (req: any, reply: any) => {
       const out = await handlers.openapi({ method: req.method, url: req.url, headers: req.headers, query: req.query || {}, ip: req.headers["x-forwarded-for"] || req.ip });
+      if (out.headers) reply.headers(out.headers);
+      reply.code(out.status).send(out.body);
+    });
+
+    fastify.post(`${basePath}maintenance/enable`, async (req: any, reply: any) => {
+      const out = await (handlers as any).maintenanceEnable({ method: req.method, url: req.url, headers: req.headers, query: req.query || {} });
+      if (out.headers) reply.headers(out.headers);
+      reply.code(out.status).send(out.body);
+    });
+
+    fastify.post(`${basePath}maintenance/disable`, async (req: any, reply: any) => {
+      const out = await (handlers as any).maintenanceDisable({ method: req.method, url: req.url, headers: req.headers, query: req.query || {} });
       if (out.headers) reply.headers(out.headers);
       reply.code(out.status).send(out.body);
     });

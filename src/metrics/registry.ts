@@ -1,160 +1,53 @@
-import { Metric, MetricsRegistryLike } from "../core/types";
+import { MetricsRegistryLike } from "../core/types";
+import { Counter, Gauge, Registry, collectDefaultMetrics } from "prom-client";
 
 type LabelValues = Record<string, string>;
 
-class Counter implements Metric {
-  public readonly name: string;
-  public readonly help?: string;
-  public readonly type = "counter" as const;
-  public readonly labels?: string[];
-  private readonly values: Map<string, number> = new Map();
-
-  constructor(name: string, help?: string, labels?: string[]) {
-    this.name = name;
-    this.help = help;
-    this.labels = labels;
-  }
-
-  private key(labels?: LabelValues): string {
-    if (!this.labels || this.labels.length === 0) return "__all__";
-    const vals = this.labels.map((k) => labels?.[k] ?? "");
-    return vals.join("::");
-  }
-
-  public inc(value = 1, labels?: LabelValues) {
-    const k = this.key(labels);
-    const current = this.values.get(k) ?? 0;
-    this.values.set(k, current + value);
-  }
-
-  public get(): string {
-    const lines: string[] = [];
-    if (this.help) lines.push(`# HELP ${this.name} ${this.help}`);
-    lines.push(`# TYPE ${this.name} counter`);
-    if (this.values.size === 0) {
-      lines.push(`${this.name} 0`);
-    } else {
-      for (const [k, v] of this.values.entries()) {
-        if (k === "__all__") {
-          lines.push(`${this.name} ${v}`);
-        } else {
-          const labelPairs = (this.labels ?? []).map((key, idx) => `${key}="${k.split("::")[idx]}"`).join(",");
-          lines.push(`${this.name}{${labelPairs}} ${v}`);
-        }
-      }
-    }
-    return lines.join("\n");
-  }
-}
-
-class Gauge implements Metric {
-  public readonly name: string;
-  public readonly help?: string;
-  public readonly type = "gauge" as const;
-  public readonly labels?: string[];
-  private readonly values: Map<string, number> = new Map();
-
-  constructor(name: string, help?: string, labels?: string[]) {
-    this.name = name;
-    this.help = help;
-    this.labels = labels;
-  }
-
-  private key(labels?: LabelValues): string {
-    if (!this.labels || this.labels.length === 0) return "__all__";
-    const vals = this.labels.map((k) => labels?.[k] ?? "");
-    return vals.join("::");
-  }
-
-  public set(value: number, labels?: LabelValues) {
-    const k = this.key(labels);
-    this.values.set(k, value);
-  }
-
-  public inc(value = 1, labels?: LabelValues) {
-    const k = this.key(labels);
-    const current = this.values.get(k) ?? 0;
-    this.values.set(k, current + value);
-  }
-
-  public get(): string {
-    const lines: string[] = [];
-    if (this.help) lines.push(`# HELP ${this.name} ${this.help}`);
-    lines.push(`# TYPE ${this.name} gauge`);
-    if (this.values.size === 0) {
-      lines.push(`${this.name} 0`);
-    } else {
-      for (const [k, v] of this.values.entries()) {
-        if (k === "__all__") {
-          lines.push(`${this.name} ${v}`);
-        } else {
-          const labelPairs = (this.labels ?? []).map((key, idx) => `${key}="${k.split("::")[idx]}"`).join(",");
-          lines.push(`${this.name}{${labelPairs}} ${v}`);
-        }
-      }
-    }
-    return lines.join("\n");
-  }
-}
-
 export class MetricsRegistry implements MetricsRegistryLike {
-  private readonly metricsByName: Map<string, Metric> = new Map();
+  private readonly registry: Registry;
+  private readonly counters: Map<string, Counter<string>> = new Map();
+  private readonly gauges: Map<string, Gauge<string>> = new Map();
 
-  public register(metric: Metric): void {
-    this.metricsByName.set(metric.name, metric);
+  constructor(registry?: Registry) {
+    this.registry = registry ?? new Registry();
+    collectDefaultMetrics({ register: this.registry });
   }
 
-  public counter(name: string, help?: string, labels?: string[]): Counter {
-    const existing = this.metricsByName.get(name);
-    if (existing && existing.type !== "counter") {
-      throw new Error(`Metric ${name} already registered with type ${existing.type}`);
-    }
-    if (!existing) {
-      const c = new Counter(name, help, labels);
-      this.metricsByName.set(name, c);
-      return c;
-    }
-    return existing as Counter;
+  public register(): void {
+    // no-op retained for compatibility
   }
 
-  public gauge(name: string, help?: string, labels?: string[]): Gauge {
-    const existing = this.metricsByName.get(name);
-    if (existing && existing.type !== "gauge") {
-      throw new Error(`Metric ${name} already registered with type ${existing.type}`);
+  public counter(name: string, help?: string, labels?: string[]): Counter<string> {
+    let c = this.counters.get(name);
+    if (!c) {
+      c = new Counter({ name, help: help ?? name, labelNames: labels ?? [], registers: [this.registry] });
+      this.counters.set(name, c);
     }
-    if (!existing) {
-      const g = new Gauge(name, help, labels);
-      this.metricsByName.set(name, g);
-      return g;
+    return c;
+  }
+
+  public gauge(name: string, help?: string, labels?: string[]): Gauge<string> {
+    let g = this.gauges.get(name);
+    if (!g) {
+      g = new Gauge({ name, help: help ?? name, labelNames: labels ?? [], registers: [this.registry] });
+      this.gauges.set(name, g);
     }
-    return existing as Gauge;
+    return g;
   }
 
   public inc(name: string, value = 1, labels?: LabelValues): void {
-    const metric = this.metricsByName.get(name);
-    if (!metric) throw new Error(`Metric ${name} not found`);
-    if (metric.type === "counter") {
-      (metric as Counter).inc(value, labels);
-    } else {
-      (metric as Gauge).inc(value, labels);
-    }
+    const c = this.counter(name);
+    if (labels) c.inc(labels as any, value); else c.inc(value);
   }
 
   public set(name: string, value: number, labels?: LabelValues): void {
-    const metric = this.metricsByName.get(name);
-    if (!metric) throw new Error(`Metric ${name} not found`);
-    if (metric.type === "gauge") {
-      (metric as Gauge).set(value, labels);
-    } else {
-      throw new Error(`Metric ${name} is not a gauge`);
-    }
+    const g = this.gauge(name);
+    if (labels) g.set(labels as any, value); else g.set(value);
   }
 
-  public exposition(): string {
-    return Array.from(this.metricsByName.values())
-      .map((m) => m.get())
-      .join("\n\n");
-  }
+  public exposition(): Promise<string> { return this.registry.metrics(); }
+
+  public getRegistry(): Registry { return this.registry; }
 }
 
 

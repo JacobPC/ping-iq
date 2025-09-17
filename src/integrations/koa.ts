@@ -27,8 +27,11 @@ export function createKoaMiddleware(handlers: Handlers, basePath = "/") {
     if (path === `${basePath}readiness`) return send(await handlers.readiness(req));
     if (path === `${basePath}metrics`) return send(await handlers.metrics(req));
     if (path === `${basePath}diagnostics/network`) return send(await handlers.diagnosticsNetwork(req));
+    if (path === `${basePath}diagnostics/latency`) return send(await (handlers as any).diagnosticsLatency(req));
     if (path === `${basePath}env`) return send(await handlers.env(req));
     if (path === `${basePath}openapi.json`) return send(await (handlers as any).openapi(req));
+    if (path === `${basePath}maintenance/enable` && ctx.method === 'POST') return send(await (handlers as any).maintenanceEnable(req));
+    if (path === `${basePath}maintenance/disable` && ctx.method === 'POST') return send(await (handlers as any).maintenanceDisable(req));
 
     return next();
   };

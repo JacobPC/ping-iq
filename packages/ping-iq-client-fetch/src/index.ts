@@ -20,12 +20,33 @@ export function createPingIQClient(options: PingIQClientOptions) {
     info: () => request<Record<string, unknown>>(`${prefix}/info`, h),
     health: () => request<{ status: string; timestamp: string; checks: unknown[] }>(`${prefix}/health`, h),
     metrics: () => request<string>(`${prefix}/metrics`, h),
-    diagnosticsNetwork: (params?: { samples?: number; payload?: number }) => {
+    diagnosticsNetwork: async (params?: { payload?: number }) => {
       const qs = new URLSearchParams();
-      if (params?.samples) qs.set("samples", String(params.samples));
       if (params?.payload) qs.set("payload", String(params.payload));
       const url = `${prefix}/diagnostics/network${qs.toString() ? `?${qs}` : ""}`;
-      return request<Record<string, unknown>>(url, h);
+      const start = performance.now();
+      const res = await fetch(url, { headers: { ...(h || {}), 'accept-encoding': 'identity' } });
+      if (!res.ok) throw new Error(`PingIQ fetch failed ${res.status}`);
+      const buf = await res.arrayBuffer();
+      const end = performance.now();
+      const elapsedMs = Math.max(1, end - start);
+      const serverMs = Number(res.headers.get('x-pingiq-server-duration-ms') || 0);
+      const contentLength = Number(res.headers.get('content-length') || buf.byteLength || 0);
+      const effectiveMs = Math.max(1, elapsedMs - (Number.isFinite(serverMs) ? serverMs : 0));
+      const throughputMbps = contentLength > 0 ? (contentLength * 8) / (effectiveMs / 1000) / 1_000_000 : 0;
+      return { bytes: contentLength, elapsedMs, serverDurationMs: Number.isFinite(serverMs) ? serverMs : 0, effectiveMs, throughputMbps } as const;
+    },
+    diagnosticsLatency: async () => {
+      const url = `${prefix}/diagnostics/latency`;
+      const start = performance.now();
+      const res = await fetch(url, { headers: { ...(h || {}), 'accept-encoding': 'identity' } });
+      if (!res.ok) throw new Error(`PingIQ fetch failed ${res.status}`);
+      await res.arrayBuffer();
+      const end = performance.now();
+      const elapsedMs = Math.max(0, end - start);
+      const serverMs = Number(res.headers.get('x-pingiq-server-duration-ms') || 0);
+      const rttMs = Math.max(0, elapsedMs - (Number.isFinite(serverMs) ? serverMs : 0));
+      return { elapsedMs, serverDurationMs: Number.isFinite(serverMs) ? serverMs : 0, rttMs } as const;
     },
     env: () => request<Record<string, string | undefined>>(`${prefix}/env`, h),
   };

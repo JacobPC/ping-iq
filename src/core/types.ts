@@ -66,6 +66,7 @@ export interface PingIQOptions {
     servers?: { url: string; description?: string }[];
   };
   livenessMetrics?: boolean; // default false, if true record metrics for /, /health, /healthz
+  readinessCacheTtlMs?: number; // default 0 (disabled)
 }
 
 export interface RequestLike {
@@ -95,7 +96,7 @@ export interface MetricsRegistryLike {
   register(metric: Metric): void;
   inc(name: string, value?: number, labels?: Record<string, string>): void;
   set(name: string, value: number, labels?: Record<string, string>): void;
-  exposition(): string;
+  exposition(): Promise<string> | string;
 }
 
 

@@ -73,10 +73,11 @@ const health = await client.health();
 - **/ping**: heartbeat that returns { status, message: "pong", timestamp }
 - **/time**: server UTC timestamp
 - **/info**: service metadata (name, version, environment, extra)
-- **/health**: liveness/readiness with configurable async checks
-- **/readiness**: detailed readiness with async checks (alias of /health)
+- **/health**: simple liveness (200 OK, body "ok"); Kubernetes-friendly
+- **/readiness**: detailed readiness with async checks; supports `application/health+json`
 - **/metrics**: Prometheus exposition (uptime, memory, request counts)
-- **/diagnostics/network**: latency and optional throughput (rate-limited)
+- **/diagnostics/network**: downloadable binary payload for throughput tests (rate-limited)
+- **/diagnostics/latency**: tiny binary payload for RTT latency (rate-limited)
 - **/env**: whitelisted environment variables (disabled by default)
 - **/openapi.json**: optional OpenAPI 3 document for all endpoints
 
@@ -106,7 +107,7 @@ app.use('/_status', pingIQ.express());
 app.listen(3000, () => console.log('http://localhost:3000/_status/ping'));
 ```
 
-Endpoints: `/ping`, `/time`, `/info`, `/health`, `/metrics`, `/diagnostics/network`, `/env` (opt‑in) under `/_status/*`.
+Endpoints: `/ping`, `/time`, `/info`, `/health`, `/readiness`, `/metrics`, `/diagnostics/network`, `/diagnostics/latency`, `/env` (opt‑in) under `/_status/*`.
 
 ### Fastify
 
@@ -199,22 +200,32 @@ interface PingIQOptions {
 }
 ```
 
-Example with readiness checks, env allowlist, and auth:
+Example with readiness checks (using helpers), env allowlist, and auth:
 
 ```ts
-import { createPingIQ } from 'ping-iq';
+import { createPingIQ, booleanCheck, timedCheck, httpGetCheck, tcpPortCheck, clientPingCheck } from 'ping-iq';
+
+// Example clients (replace with your own instances)
+const db = { ping: async () => true };
+const cache = { ping: async () => {} };
+const s3 = { ping: async () => {} };
 
 const pingIQ = createPingIQ({
   readinessChecks: [
-    async () => {
-      // db check
-      const healthy = true; // replace with real check
-      return { name: 'database', status: healthy ? 'ok' : 'fail' };
-    },
-    async () => {
-      // cache check
-      return { name: 'cache', status: 'ok' };
-    },
+    // Returns ok/fail based on boolean result
+    booleanCheck('database', async () => db.ping()),
+
+    // Measures duration and sets ok on success, fail on throw
+    timedCheck('cache', async () => cache.ping()),
+
+    // HTTP GET with timeout (uses global fetch by default)
+    httpGetCheck('external-api', 'https://status.example.com/health', 1500),
+
+    // TCP port connectivity (e.g., Redis)
+    tcpPortCheck('redis', '127.0.0.1', 6379, 1000),
+
+    // Wrap any client call that should succeed
+    clientPingCheck('storage', async () => { await s3.ping(); }),
   ],
   env: { enabled: true, whitelist: ['NODE_ENV', 'COMMIT_SHA', 'BUILD_ID'] },
   diagnostics: { enableThroughput: true, maxPayloadBytes: 2 * 1024 * 1024 },
@@ -240,11 +251,14 @@ const pingIQ = createPingIQ({
 - **GET /info**
   - Response: `{ name, version, environment, ...extra }`
 
-- **GET /health** (legacy; same as readiness)
-  - Runs all `readinessChecks` and reports combined status.
+- **GET /health**
+  - Liveness endpoint. Returns `200` with body `ok` (Kubernetes-friendly).
+
 - **GET /readiness**
   - Runs all `readinessChecks` and reports combined status.
-  - Response same as /health.
+  - Content negotiation:
+    - `Accept: application/health+json` → returns `{ status: 'pass'|'warn'|'fail' }`
+    - otherwise returns detailed JSON with checks.
   - Response:
     ```json
     {
@@ -271,25 +285,28 @@ const pingIQ = createPingIQ({
 
 - **GET /diagnostics/network**
   - Query params:
-    - `samples` (default 5): number of latency samples
-    - `payload` (bytes, default 65536): throughput payload size (if enabled)
-  - Response example:
-    ```json
-    {
-      "samples": 5,
-      "avgMs": 0.1,
-      "minMs": 0,
-      "maxMs": 1,
-      "jitterMs": 1,
-      "throughputMbps": 512.3,
-      "payloadBytes": 1048576
-    }
-    ```
+    - `payload` (bytes, default 65536): requested download size (capped by `maxPayloadBytes`).
+  - Response: `application/octet-stream` with headers:
+    - `Content-Length`: exact size
+    - `X-PingIQ-Server-Duration-Ms`: server processing duration to subtract client-side
   - Rate-limited by default (HTTP 429 on excess).
+
+- **GET /diagnostics/latency**
+  - Returns a 1‑byte `application/octet-stream` body for RTT measurement.
+  - Headers:
+    - `X-PingIQ-Server-Duration-Ms`: server processing duration
 
 - **GET /env** (disabled by default)
   - Only returns whitelisted variables.
   - Enable via `env: { enabled: true, whitelist: [...] }`.
+
+---
+
+## Standards
+
+- **Kubernetes/Health Check Compatibility**: Readiness supports `application/health+json` with `status: pass|warn|fail`.
+- **Prometheus Metrics**: `/metrics` returns Prometheus text exposition format (`text/plain; version=0.0.4`).
+- **OpenAPI 3**: Optional `/_status/openapi.json` provides a machine-readable contract.
 
 ---
 
@@ -320,6 +337,14 @@ Pick your preferred client and optionally React hooks.
 import { createPingIQClient } from 'ping-iq-client-fetch';
 const client = createPingIQClient({ baseUrl: '/_status' });
 const { status } = await client.health();
+
+// Measure throughput
+const d1 = await client.diagnosticsNetwork({ payload: 500_000 });
+console.log(d1.throughputMbps, 'Mbps');
+
+// Measure RTT latency
+const l1 = await client.diagnosticsLatency();
+console.log(l1.rttMs, 'ms');
 ```
 
 ### Axios client
@@ -329,6 +354,12 @@ import axios from 'axios';
 import { createPingIQAxiosClient } from 'ping-iq-client-axios';
 const client = createPingIQAxiosClient({ baseUrl: '/_status', axios });
 const info = await client.info();
+
+const d2 = await client.diagnosticsNetwork({ payload: 1_000_000 });
+console.log(d2.throughputMbps, 'Mbps');
+
+const l2 = await client.diagnosticsLatency();
+console.log(l2.rttMs, 'ms');
 ```
 
 ### React hooks
@@ -398,9 +429,9 @@ If you need just health and metrics, it’s tiny. If you want richer diagnostics
 
 ## Notes on basePath vs mount path
 
-- Express/Fastify: Prefer mounting the adapter at a path prefix (e.g., `/_status`) and keep `basePath` as `'/'`.
+- Express/Fastify: Prefer mounting the adapter at a path prefix (e.g., `/_status`) and keep `basePath` as '/'.
 - Koa: Use `basePath` (e.g., `/_status/`) since middleware is applied globally.
-- NestJS: Use framework mounting (e.g., `app.use('/_status', middleware)`), keep `basePath` as `'/'`.
+- NestJS: Use framework mounting (e.g., `app.use('/_status', middleware)`), keep `basePath` as '/'.
 
 Using both a mount prefix and a non-root `basePath` will duplicate segments (e.g., `/_status/_status/ping`).
 

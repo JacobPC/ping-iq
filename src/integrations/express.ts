@@ -35,8 +35,11 @@ export function createExpressRouter(handlers: Handlers, basePath = "/"): Router 
   router.get(`${basePath}readiness`, async (req: Request, res: Response) => send(res, await handlers.readiness(toReq(req))));
   router.get(`${basePath}metrics`, async (req: Request, res: Response) => send(res, await handlers.metrics(toReq(req))));
   router.get(`${basePath}diagnostics/network`, async (req: Request, res: Response) => send(res, await handlers.diagnosticsNetwork(toReq(req))));
+  router.get(`${basePath}diagnostics/latency`, async (req: Request, res: Response) => send(res, await (handlers as any).diagnosticsLatency(toReq(req))));
   router.get(`${basePath}env`, async (req: Request, res: Response) => send(res, await handlers.env(toReq(req))));
   router.get(`${basePath}openapi.json`, async (req: Request, res: Response) => send(res, await (handlers as any).openapi(toReq(req))));
+  router.post(`${basePath}maintenance/enable`, async (req: Request, res: Response) => send(res, await (handlers as any).maintenanceEnable(toReq(req))));
+  router.post(`${basePath}maintenance/disable`, async (req: Request, res: Response) => send(res, await (handlers as any).maintenanceDisable(toReq(req))));
 
   // Not-found within basePath
   router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

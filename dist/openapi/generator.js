@@ -48,12 +48,27 @@ function generateOpenAPISpec(opts) {
         },
         [`${base}/diagnostics/network`]: {
             get: {
-                summary: "Network diagnostics",
+                summary: "Download throughput payload",
                 parameters: [
-                    { name: "samples", in: "query", schema: { type: "integer", minimum: 1 }, required: false },
                     { name: "payload", in: "query", schema: { type: "integer", minimum: 0 }, required: false },
                 ],
-                responses: { 200: jsonResp({ type: "object", additionalProperties: true }) },
+                responses: {
+                    200: {
+                        description: "Binary payload for bandwidth measurement",
+                        content: { "application/octet-stream": { schema: { type: "string", format: "binary" } } },
+                    },
+                },
+            },
+        },
+        [`${base}/diagnostics/latency`]: {
+            get: {
+                summary: "Tiny payload for RTT measurement",
+                responses: {
+                    200: {
+                        description: "Single-byte payload",
+                        content: { "application/octet-stream": { schema: { type: "string", format: "binary" } } },
+                    },
+                },
             },
         },
     };

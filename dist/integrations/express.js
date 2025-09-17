@@ -31,8 +31,11 @@ function createExpressRouter(handlers, basePath = "/") {
     router.get(`${basePath}readiness`, async (req, res) => send(res, await handlers.readiness(toReq(req))));
     router.get(`${basePath}metrics`, async (req, res) => send(res, await handlers.metrics(toReq(req))));
     router.get(`${basePath}diagnostics/network`, async (req, res) => send(res, await handlers.diagnosticsNetwork(toReq(req))));
+    router.get(`${basePath}diagnostics/latency`, async (req, res) => send(res, await handlers.diagnosticsLatency(toReq(req))));
     router.get(`${basePath}env`, async (req, res) => send(res, await handlers.env(toReq(req))));
     router.get(`${basePath}openapi.json`, async (req, res) => send(res, await handlers.openapi(toReq(req))));
+    router.post(`${basePath}maintenance/enable`, async (req, res) => send(res, await handlers.maintenanceEnable(toReq(req))));
+    router.post(`${basePath}maintenance/disable`, async (req, res) => send(res, await handlers.maintenanceDisable(toReq(req))));
     // Not-found within basePath
     router.use((err, _req, res, _next) => {
         res.status(500).json({ error: "Internal Server Error" });

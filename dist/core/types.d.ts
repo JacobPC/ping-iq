@@ -58,6 +58,7 @@ export interface PingIQOptions {
         }[];
     };
     livenessMetrics?: boolean;
+    readinessCacheTtlMs?: number;
 }
 export interface RequestLike {
     method: string;
@@ -83,5 +84,5 @@ export interface MetricsRegistryLike {
     register(metric: Metric): void;
     inc(name: string, value?: number, labels?: Record<string, string>): void;
     set(name: string, value: number, labels?: Record<string, string>): void;
-    exposition(): string;
+    exposition(): Promise<string> | string;
 }

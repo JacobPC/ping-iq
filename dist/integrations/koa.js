@@ -37,10 +37,16 @@ function createKoaMiddleware(handlers, basePath = "/") {
             return send(await handlers.metrics(req));
         if (path === `${basePath}diagnostics/network`)
             return send(await handlers.diagnosticsNetwork(req));
+        if (path === `${basePath}diagnostics/latency`)
+            return send(await handlers.diagnosticsLatency(req));
         if (path === `${basePath}env`)
             return send(await handlers.env(req));
         if (path === `${basePath}openapi.json`)
             return send(await handlers.openapi(req));
+        if (path === `${basePath}maintenance/enable` && ctx.method === 'POST')
+            return send(await handlers.maintenanceEnable(req));
+        if (path === `${basePath}maintenance/disable` && ctx.method === 'POST')
+            return send(await handlers.maintenanceDisable(req));
         return next();
     };
 }

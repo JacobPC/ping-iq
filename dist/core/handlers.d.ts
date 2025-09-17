@@ -1,15 +1,26 @@
 import { InMemoryRateLimiter } from "../security/rateLimiter";
 import { MetricsRegistry } from "../metrics/registry";
-import { PingIQOptions, ReadinessCheck, InfoOptions, EnvOptions, DiagnosticsOptions, RateLimitOptions, AuthCheck, LoggingHooks } from "./types";
+import { PingIQOptions, ReadinessCheck, ReadinessCheckResult, InfoOptions, EnvOptions, DiagnosticsOptions, RateLimitOptions, AuthCheck, LoggingHooks } from "./types";
 export interface HandlerResponse {
     status: number;
     headers?: Record<string, string>;
     body?: string | Buffer;
 }
+export interface RuntimeState {
+    maintenance: boolean;
+    readinessCache?: {
+        ts: number;
+        result: {
+            status: "ok" | "degraded" | "fail";
+            checks: ReadinessCheckResult[];
+        };
+    };
+}
 export interface HandlerContext {
     options: PingIQResolvedOptions;
     metrics: MetricsRegistry;
     rateLimiter?: InMemoryRateLimiter;
+    state: RuntimeState;
 }
 export interface PingIQResolvedOptions {
     basePath: string;
@@ -30,6 +41,7 @@ export interface PingIQResolvedOptions {
             description?: string;
         }[];
     };
+    readinessCacheTtlMs?: number;
 }
 export declare function createDefaultMetrics(): MetricsRegistry;
 export declare function createHandlers(ctx: HandlerContext): {
@@ -39,9 +51,22 @@ export declare function createHandlers(ctx: HandlerContext): {
     info: (req: any) => Promise<HandlerResponse>;
     health: (req: any) => Promise<HandlerResponse>;
     healthz: (req: any) => Promise<HandlerResponse>;
-    readiness: (req: any) => Promise<HandlerResponse>;
+    readiness: (req: {
+        method: string;
+        url: string;
+        headers: Record<string, string | string[]>;
+        query: Record<string, string | string[]>;
+    }) => Promise<HandlerResponse>;
     metrics: (req: any) => Promise<HandlerResponse>;
     diagnosticsNetwork: (req: {
+        method: string;
+        url: string;
+        headers: Record<string, string | string[]>;
+        query: Record<string, string | string[]>;
+        body?: any;
+        ip?: string;
+    }) => Promise<HandlerResponse>;
+    diagnosticsLatency: (req: {
         method: string;
         url: string;
         headers: Record<string, string | string[]>;
@@ -56,5 +81,7 @@ export declare function createHandlers(ctx: HandlerContext): {
         ip?: string;
     }) => Promise<HandlerResponse>;
     openapi: (req: any) => Promise<HandlerResponse>;
+    maintenanceEnable: (req: any) => Promise<HandlerResponse>;
+    maintenanceDisable: (req: any) => Promise<HandlerResponse>;
 };
 export declare function createOptionsDefaults(opts?: PingIQOptions): PingIQResolvedOptions;

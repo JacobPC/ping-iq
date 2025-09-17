@@ -33,10 +33,16 @@ function createNestModule(handlers, basePath = "/") {
                 return send(await handlers.metrics(makeReq(req.query)));
             if (match(`${basePath}diagnostics/network`))
                 return send(await handlers.diagnosticsNetwork(makeReq(req.query)));
+            if (match(`${basePath}diagnostics/latency`))
+                return send(await handlers.diagnosticsLatency(makeReq(req.query)));
             if (match(`${basePath}env`))
                 return send(await handlers.env(makeReq(req.query)));
             if (match(`${basePath}openapi.json`))
                 return send(await handlers.openapi(makeReq(req.query)));
+            if (match(`${basePath}maintenance/enable`) && req.method === 'POST')
+                return send(await handlers.maintenanceEnable(makeReq(req.query)));
+            if (match(`${basePath}maintenance/disable`) && req.method === 'POST')
+                return send(await handlers.maintenanceDisable(makeReq(req.query)));
             return next();
         }
         catch (e) {

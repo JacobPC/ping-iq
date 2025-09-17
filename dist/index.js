@@ -18,16 +18,24 @@ exports.generateOpenAPISpec = void 0;
 exports.createPingIQ = createPingIQ;
 const handlers_1 = require("./core/handlers");
 const rateLimiter_1 = require("./security/rateLimiter");
+const graceful_1 = require("./lifecycle/graceful");
 function createPingIQ(options) {
     const opts = (0, handlers_1.createOptionsDefaults)(options);
     const metrics = (0, handlers_1.createDefaultMetrics)();
     const rateLimiter = new rateLimiter_1.InMemoryRateLimiter(opts.rateLimit);
-    const handlers = (0, handlers_1.createHandlers)({ options: opts, metrics, rateLimiter });
+    const state = { maintenance: false };
+    const handlers = (0, handlers_1.createHandlers)({ options: opts, metrics, rateLimiter, state });
     return {
         express: () => require("./integrations/express").createExpressRouter(handlers, opts.basePath),
         fastify: () => require("./integrations/fastify").createFastifyPlugin(handlers, opts.basePath),
         koa: () => require("./integrations/koa").createKoaMiddleware(handlers, opts.basePath),
         nest: () => require("./integrations/nest").createNestModule(handlers, opts.basePath),
+        maintenance: {
+            enable: () => { state.maintenance = true; state.readinessCache = undefined; },
+            disable: () => { state.maintenance = false; state.readinessCache = undefined; },
+            isEnabled: () => !!state.maintenance,
+        },
+        setupGracefulShutdown: (options) => (0, graceful_1.setupGracefulShutdown)(state, options),
     };
 }
 __exportStar(require("./core/types"), exports);

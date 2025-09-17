@@ -46,7 +46,7 @@ function createFastifyPlugin(handlers, basePath = "/") {
             reply.code(out.status).send(out.body);
         });
         fastify.get(`${basePath}readiness`, async (req, reply) => {
-            const out = await handlers.readiness({ method: req.method, url: req.url, headers: req.headers, query: req.query || {}, ip: req.headers["x-forwarded-for"] || req.ip });
+            const out = await handlers.readiness({ method: req.method, url: req.url, headers: req.headers, query: req.query || {} });
             if (out.headers)
                 reply.headers(out.headers);
             reply.code(out.status).send(out.body);
@@ -63,6 +63,12 @@ function createFastifyPlugin(handlers, basePath = "/") {
                 reply.headers(out.headers);
             reply.code(out.status).send(out.body);
         });
+        fastify.get(`${basePath}diagnostics/latency`, async (req, reply) => {
+            const out = await handlers.diagnosticsLatency({ method: req.method, url: req.url, headers: req.headers, query: req.query || {}, ip: req.headers["x-forwarded-for"] || req.ip });
+            if (out.headers)
+                reply.headers(out.headers);
+            reply.code(out.status).send(out.body);
+        });
         fastify.get(`${basePath}env`, async (req, reply) => {
             const out = await handlers.env({ method: req.method, url: req.url, headers: req.headers, ip: req.headers["x-forwarded-for"] || req.ip });
             if (out.headers)
@@ -71,6 +77,18 @@ function createFastifyPlugin(handlers, basePath = "/") {
         });
         fastify.get(`${basePath}openapi.json`, async (req, reply) => {
             const out = await handlers.openapi({ method: req.method, url: req.url, headers: req.headers, query: req.query || {}, ip: req.headers["x-forwarded-for"] || req.ip });
+            if (out.headers)
+                reply.headers(out.headers);
+            reply.code(out.status).send(out.body);
+        });
+        fastify.post(`${basePath}maintenance/enable`, async (req, reply) => {
+            const out = await handlers.maintenanceEnable({ method: req.method, url: req.url, headers: req.headers, query: req.query || {} });
+            if (out.headers)
+                reply.headers(out.headers);
+            reply.code(out.status).send(out.body);
+        });
+        fastify.post(`${basePath}maintenance/disable`, async (req, reply) => {
+            const out = await handlers.maintenanceDisable({ method: req.method, url: req.url, headers: req.headers, query: req.query || {} });
             if (out.headers)
                 reply.headers(out.headers);
             reply.code(out.status).send(out.body);

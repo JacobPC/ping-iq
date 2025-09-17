@@ -7,6 +7,16 @@ export interface PingIQInstance {
         path: string;
         middleware: any;
     };
+    maintenance: {
+        enable(): void;
+        disable(): void;
+        isEnabled(): boolean;
+    };
+    setupGracefulShutdown: (options?: {
+        signals?: NodeJS.Signals[];
+        drainMs?: number;
+        onSignal?: (signal: string) => void;
+    }) => () => void;
 }
 export declare function createPingIQ(options?: PingIQOptions): PingIQInstance;
 export * from "./core/types";

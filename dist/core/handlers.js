@@ -54,7 +54,7 @@ async function runReadinessChecks(checks) {
     return { status: overall, checks: results };
 }
 function createHandlers(ctx) {
-    const { options, metrics, rateLimiter } = ctx;
+    const { options, metrics, rateLimiter, state } = ctx;
     function recordProcessMetrics() {
         metrics.set("pingiq_process_uptime_seconds", process.uptime());
         const mem = process.memoryUsage();
@@ -108,22 +108,49 @@ function createHandlers(ctx) {
             const g = await guard(req, "readiness");
             if (g !== true)
                 return respond("readiness", g, req);
-            const { status, checks } = await runReadinessChecks(options.readinessChecks);
-            return respond("readiness", ok({ status, timestamp: (0, utils_1.nowUtcIso)(), checks }), req);
+            // Maintenance mode forces readiness fail
+            if (state.maintenance) {
+                const accepts = String(req.headers["accept"] || "");
+                if (accepts.includes("application/health+json")) {
+                    return respond("readiness", { status: 200, headers: { ...SECURE_JSON_HEADERS, "content-type": "application/health+json" }, body: JSON.stringify({ status: "fail" }) }, req);
+                }
+                return respond("readiness", ok({ status: "fail", timestamp: (0, utils_1.nowUtcIso)(), checks: [{ name: "maintenance", status: "fail" }] }), req);
+            }
+            // Cache TTL
+            const ttl = options.readinessCacheTtlMs ?? 0;
+            const now = Date.now();
+            if (ttl > 0 && state.readinessCache && now - state.readinessCache.ts < ttl) {
+                const cached = state.readinessCache.result;
+                const accepts = String(req.headers["accept"] || "");
+                if (accepts.includes("application/health+json")) {
+                    const map = { ok: "pass", degraded: "warn", fail: "fail" };
+                    return respond("readiness", { status: 200, headers: { ...SECURE_JSON_HEADERS, "content-type": "application/health+json" }, body: JSON.stringify({ status: map[cached.status] }) }, req);
+                }
+                return respond("readiness", ok({ status: cached.status, timestamp: (0, utils_1.nowUtcIso)(), checks: cached.checks }), req);
+            }
+            const computed = await runReadinessChecks(options.readinessChecks);
+            state.readinessCache = { ts: now, result: computed };
+            const accepts = String(req.headers["accept"] || "");
+            if (accepts.includes("application/health+json")) {
+                const map = { ok: "pass", degraded: "warn", fail: "fail" };
+                return respond("readiness", { status: 200, headers: { ...SECURE_JSON_HEADERS, "content-type": "application/health+json" }, body: JSON.stringify({ status: map[computed.status] }) }, req);
+            }
+            return respond("readiness", ok({ status: computed.status, timestamp: (0, utils_1.nowUtcIso)(), checks: computed.checks }), req);
         },
         metrics: async (req) => {
             const g = await guard(req, "metrics");
             if (g !== true)
                 return respond("metrics", g, req);
+            const body = await metrics.exposition();
             return respond("metrics", {
                 status: 200,
                 headers: {
-                    "content-type": "text/plain; version=0.0.4",
+                    "content-type": metrics.getRegistry ? metrics.getRegistry().contentType : "text/plain; version=0.0.4",
                     "cache-control": "no-store",
                     "pragma": "no-cache",
                     "x-content-type-options": "nosniff",
                 },
-                body: metrics.exposition(),
+                body,
             }, req);
         },
         diagnosticsNetwork: async (req) => {
@@ -135,33 +162,47 @@ function createHandlers(ctx) {
                 if (!rateLimiter.tryConsume(key, 1))
                     return respond("diagnostics_network", tooManyRequests(), req);
             }
-            const samples = (0, utils_1.parseIntSafe)(req.query["samples"], 5);
-            const payloadBytes = (0, utils_1.parseIntSafe)(req.query["payload"], 64 * 1024);
-            const enableThroughput = options.diagnostics.enableThroughput;
+            const requestedBytes = (0, utils_1.parseIntSafe)(req.query["payload"], 64 * 1024);
             const maxPayload = options.diagnostics.maxPayloadBytes;
-            const size = Math.min(payloadBytes, maxPayload);
-            const payload = enableThroughput ? Buffer.alloc(size, 0) : undefined;
-            const latencies = [];
-            for (let i = 0; i < samples; i++) {
-                const start = Date.now();
-                // Simulate echo to measure latency; framework adapters will avoid extra overhead
-                // and simply respond immediately measuring server-side processing.
-                const end = Date.now();
-                latencies.push(end - start);
+            const size = Math.min(Math.max(0, requestedBytes), maxPayload);
+            const start = Date.now();
+            const payload = Buffer.alloc(size, 0);
+            const serverDurationMs = Date.now() - start;
+            return respond("diagnostics_network", {
+                status: 200,
+                headers: {
+                    ...SECURE_TEXT_HEADERS,
+                    "content-type": "application/octet-stream",
+                    "content-length": String(payload.length),
+                    "x-pingiq-server-duration-ms": String(serverDurationMs),
+                    "x-pingiq-payload-bytes": String(payload.length),
+                },
+                body: payload,
+            }, req);
+        },
+        diagnosticsLatency: async (req) => {
+            const g = await guard(req, "diagnostics_latency");
+            if (g !== true)
+                return respond("diagnostics_latency", g, req);
+            if (rateLimiter) {
+                const key = (0, utils_1.firstForwardedIp)(req.headers["x-forwarded-for"], req.ip) || "unknown";
+                if (!rateLimiter.tryConsume(key, 1))
+                    return respond("diagnostics_latency", tooManyRequests(), req);
             }
-            const avg = latencies.reduce((a, b) => a + b, 0) / Math.max(1, latencies.length);
-            const min = Math.min(...latencies);
-            const max = Math.max(...latencies);
-            const jitter = max - min;
-            const result = { samples, avgMs: avg, minMs: min, maxMs: max, jitterMs: jitter };
-            if (enableThroughput && payload) {
-                const start = Date.now();
-                // pretend to send payload back
-                const duration = Date.now() - start;
-                result.throughputMbps = (0, utils_1.bytesToMbps)(payload.length, Math.max(1, duration));
-                result.payloadBytes = payload.length;
-            }
-            return respond("diagnostics_network", ok(result), req);
+            // Always return tiny body for RTT measurement
+            const start = Date.now();
+            const payload = Buffer.from([0]);
+            const serverDurationMs = Date.now() - start;
+            return respond("diagnostics_latency", {
+                status: 200,
+                headers: {
+                    ...SECURE_TEXT_HEADERS,
+                    "content-type": "application/octet-stream",
+                    "content-length": "1",
+                    "x-pingiq-server-duration-ms": String(serverDurationMs),
+                },
+                body: payload,
+            }, req);
         },
         env: async (req) => {
             const g = await guard(req, "env");
@@ -184,6 +225,22 @@ function createHandlers(ctx) {
             const { generateOpenAPISpec } = require("../openapi/generator");
             const spec = generateOpenAPISpec(options);
             return respond("openapi", { status: 200, headers: { ...SECURE_JSON_HEADERS }, body: JSON.stringify(spec) }, req);
+        },
+        maintenanceEnable: async (req) => {
+            const g = await guard(req, "maintenance_enable");
+            if (g !== true)
+                return respond("maintenance_enable", g, req);
+            state.maintenance = true;
+            state.readinessCache = undefined;
+            return respond("maintenance_enable", ok({ maintenance: true }), req);
+        },
+        maintenanceDisable: async (req) => {
+            const g = await guard(req, "maintenance_disable");
+            if (g !== true)
+                return respond("maintenance_disable", g, req);
+            state.maintenance = false;
+            state.readinessCache = undefined;
+            return respond("maintenance_disable", ok({ maintenance: false }), req);
         },
     };
 }
